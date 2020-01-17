@@ -2,15 +2,13 @@ package de.codecentric.mule.batch;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Helper to wait for a Mule Batch.
- *
  */
 public class BatchJobSynchronizer {
 	private static Map<String, StateHolder> jobs = new HashMap<>();
-	private static AtomicLong jobCounter = new AtomicLong(System.currentTimeMillis());
+	private static long jobCounter = System.currentTimeMillis();
 
 	/**
 	 * Create a new "batch job" (only the administration data to wait for it).
@@ -20,11 +18,11 @@ public class BatchJobSynchronizer {
 	 * @return Unique job it, starting with <code>prefix</code>
 	 */
 	public static String createJob(String prefix) {
-		String id = prefix + String.valueOf(jobCounter.getAndIncrement());
 		synchronized (jobs) {
+			String id = prefix + jobCounter++;
 			jobs.put(id, new StateHolder());
+			return id;
 		}
-		return id;
 	}
 
 	/**
