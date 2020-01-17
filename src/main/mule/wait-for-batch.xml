@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:vm="http://www.mulesoft.org/schema/mule/vm"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd">
+
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="08f2df60-d0d3-4045-bae4-9fc1179c9216" >
+		<http:listener-connection host="0.0.0.0" port="8080" />
+	</http:listener-config>
+
+	<flow name="http-async" doc:id="ea302c0e-4163-47d3-9567-c6ab83b63544" >
+		<http:listener doc:name="/async" doc:id="f5ddb49a-b00a-43f3-9b95-33c59b71f351" config-ref="HTTP_Listener_config" path="/async"/>
+		<ee:transform doc:name="create payload and jobId" doc:id="9e0fa6e4-bc4a-49d0-a5a6-99eeb0122999" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 ]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<batch:job jobName="my-batch-async" doc:id="8b2ca1ba-642b-47b7-9ce8-3d74b5784797">
+			<batch:process-records >
+				<batch:step name="batch-step" doc:id="7541db7a-af3c-45ec-bb70-46fdcc6ed84e" >
+					<logger level="INFO" doc:name="payload" doc:id="f1ead70a-ad64-436e-ac57-5bb304076b10" message="#[payload]" category="batch-step"/>
+				</batch:step>
+			</batch:process-records>
+		</batch:job>
+		<logger level="INFO" doc:name="after batch" doc:id="a5c30fce-9852-4669-97ff-e2fa94b36b1f" message="after batch" category="http"/>
+		<ee:transform doc:name="payload2json" doc:id="5665ff3e-34e3-49f6-80cb-6467baa575f9" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+
+	<flow name="http-sync" doc:id="055b302d-2a4a-42c6-8771-20ddaf92ffe8" >
+		<http:listener doc:name="/sync" doc:id="9ca48d8b-e750-49d1-9b1e-e05207a6c19a" config-ref="HTTP_Listener_config" path="/sync"/>
+		<ee:transform doc:name="create payload and jobId" doc:id="73469535-01b0-4509-b703-e5316892ca6c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 ]]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="jobId" ><![CDATA[%dw 2.0
+import java!de::codecentric::mule::batch::BatchJobSynchronizer
+output application/java
+---
+BatchJobSynchronizer::createJob("my-batch-")]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<batch:job jobName="my-batch-sync" doc:id="5d5be052-3f86-4876-b8c4-d139771fc7fe" jobInstanceId="#[vars.jobId]">
+			<batch:process-records >
+				<batch:step name="batch-step" doc:id="b5728cfa-6edc-4cb0-880c-c3aa62c612d1" >
+					<logger level="INFO" doc:name="payload" doc:id="2479ead0-c47f-41d6-87ef-3a1aaa4b6694" message="#[payload]" category="batch-step"/>
+				</batch:step>
+			</batch:process-records>
+			<batch:on-complete >
+				<ee:transform doc:name="finishJob(jobId, payload)" doc:id="c44f8497-1362-4438-afb3-d1e3cec3e178" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+import java!de::codecentric::mule::batch::BatchJobSynchronizer
+output application/java
+---
+BatchJobSynchronizer::finishJob(vars.jobId, payload)]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</batch:on-complete>
+		</batch:job>
+		<logger level="INFO" doc:name="after batch" doc:id="2bbca62f-aab0-4153-b9a5-ecb869600221" message="after batch" category="http"/>
+		<ee:transform doc:name="waitUntilFinished(jobId)" doc:id="c1add13e-5bc0-471d-99e1-1da8b34c7595" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+import java!de::codecentric::mule::batch::BatchJobSynchronizer
+output application/java
+---
+BatchJobSynchronizer::waitUntilFinished(vars.jobId)
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="after wait" doc:id="d7c0dbfb-345f-4903-93fe-fe4ae9127b37" message="after wait" category="http"/>
+		<ee:transform doc:name="payload2json" doc:id="aca7c797-71ff-4711-a536-c8e04597cbf1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+
+	<flow name="http-result" doc:id="e0b425bb-cc5f-4365-bfc2-5e65776a034f" >
+		<http:listener doc:name="/result" doc:id="71c91017-2dc6-473a-bfbd-4effd3a0ebba" config-ref="HTTP_Listener_config" path="/result"/>
+		<ee:transform doc:name="create payload and jobId" doc:id="c77d010e-4170-45e3-8ab4-e456e379051e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 ]]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="jobId" ><![CDATA[%dw 2.0
+import java!de::codecentric::mule::batch::BatchJobSynchronizer
+output application/java
+---
+BatchJobSynchronizer::createJob("my-batch-")]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<batch:job jobName="my-batch" doc:id="0f427985-12b0-4061-93a4-250ec21b7114" jobInstanceId="#[vars.jobId]">
+			<batch:process-records >
+				<batch:step name="batch-step" doc:id="a87e5761-30d1-4946-9612-b5fd1c3ebe31" >
+					<logger level="INFO" doc:name="payload" doc:id="16da5fb3-dcf9-44a9-9f75-acc6c1bbb70a" message="#[payload]" category="batch-step"/>
+					<batch:aggregator doc:name="Batch Aggregator Stream" doc:id="0d907745-b412-47fe-86f3-b1d764531ced" streaming="true">
+						<ee:transform doc:name="sum" doc:id="3a429a46-ce78-422c-8c6f-6bdfeb745c74" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload reduce($$ + $)
+]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<ee:transform doc:name="finishJob(jobId, payload)" doc:id="728d786f-3177-4493-8890-eedc5be0ee2f">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+import java!de::codecentric::mule::batch::BatchJobSynchronizer
+output application/java
+---
+BatchJobSynchronizer::finishJob(vars.jobId, payload)]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+					</batch:aggregator>
+				
+</batch:step>
+			</batch:process-records>
+		</batch:job>
+		<logger level="INFO" doc:name="after batch" doc:id="4de64f5e-bbc5-42ec-9adf-43ceaca2ee59" message="after batch" category="http"/>
+		<ee:transform doc:name="waitUntilFinished(jobId)" doc:id="28e16b4a-e441-47f2-98bd-07de277de534" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+import java!de::codecentric::mule::batch::BatchJobSynchronizer
+output application/java
+---
+BatchJobSynchronizer::waitUntilFinished(vars.jobId)
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="after wait" doc:id="c9132740-8bba-452e-86aa-e6ba5682e43e" message="after wait" category="http"/>
+		<ee:transform doc:name="payload2json" doc:id="802e1c8c-5609-445b-b2be-0190e94491e0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
