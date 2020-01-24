@@ -119,22 +119,13 @@ BatchJobSynchronizer::createJob("my-batch-")]]></ee:set-variable>
 				<batch:step name="batch-step" doc:id="a87e5761-30d1-4946-9612-b5fd1c3ebe31" >
 					<logger level="INFO" doc:name="payload" doc:id="16da5fb3-dcf9-44a9-9f75-acc6c1bbb70a" message="#[payload]" category="batch-step"/>
 					<batch:aggregator doc:name="Batch Aggregator Stream" doc:id="0d907745-b412-47fe-86f3-b1d764531ced" streaming="true">
-						<ee:transform doc:name="sum" doc:id="3a429a46-ce78-422c-8c6f-6bdfeb745c74" >
-							<ee:message >
-								<ee:set-payload ><![CDATA[%dw 2.0
-output application/java
----
-payload reduce($$ + $)
-]]></ee:set-payload>
-							</ee:message>
-						</ee:transform>
-						<ee:transform doc:name="finishJob(jobId, payload)" doc:id="728d786f-3177-4493-8890-eedc5be0ee2f">
+						<ee:transform doc:name="sum + finishJob(jobId, payload)" doc:id="728d786f-3177-4493-8890-eedc5be0ee2f">
 					<ee:message>
 						<ee:set-payload><![CDATA[%dw 2.0
 import java!de::codecentric::mule::batch::BatchJobSynchronizer
 output application/java
 ---
-BatchJobSynchronizer::finishJob(vars.jobId, payload)]]></ee:set-payload>
+BatchJobSynchronizer::finishJob(vars.jobId, payload reduce($$ + $))]]></ee:set-payload>
 					</ee:message>
 				</ee:transform>
 					</batch:aggregator>
