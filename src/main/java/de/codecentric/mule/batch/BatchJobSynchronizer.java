@@ -4,7 +4,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Helper to wait for a Mule Batch.
+ * Helper class to wait for a batch in a Mule application. This class needs book keeping of batch jobs instances
+ * and uses it's own ids for that purpose. The "real" batch job instance may have a different id, but it's a
+ * good idea to use the same id. <br/>
+ * Usage: <ol>
+ * <li>Call {@link #createJob(String)} to create a new book keeping instance.</li>
+ * <li>Call {@link #finishJob(String, Object)} when the job is finished, either from the completion phase
+ * or at the end of a batch aggregator. The first parameter is the generated id, the secondary arbitrary, it will be passed through.</li>
+ * <li>Call {@link #waitUntilFinished(String)} to wait for the end of the batch job instance. The parameter is the generated id,
+ * returned will be the passed through value from the <code>finishJob</code> call.</li>
+ * </ol>
  */
 public class BatchJobSynchronizer {
 	private static Map<String, StateHolder> jobs = new HashMap<>();
